@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   Button,
   Card as MuiCard,
@@ -7,38 +6,49 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useState } from "react";
+import { useSWRConfig } from "swr";
+
 export default function Card(props) {
   const [isEditMode, setIsEditMode] = useState(false);
+
   function enableEditMode() {
     setIsEditMode(true);
   }
+
   function disableEditMode() {
     setIsEditMode(false);
   }
+
   return (
     <MuiCard>
       {isEditMode ? (
-        <CardModeEdit {...props} onDisableEditMode={disableEditMode} />
+        <CardEditMode {...props} onDisableEditMode={disableEditMode} />
       ) : (
-        <CardModeShow {...props} onEnableEditMode={enableEditMode} />
+        <CardShowMode {...props} onEnableEditMode={enableEditMode} />
       )}
     </MuiCard>
   );
 }
-function CardModeShow({ id, content, name, onEnableEditMode }) {
+
+function CardShowMode({ id, name, content, onEnableEditMode }) {
+  const { mutate } = useSWRConfig();
+
   return (
     <>
       <CardContent>
-        <Typography variant="h5" component="p">
-          {content}
-        </Typography>
+        <Typography variant="h5">{content}</Typography>
         <Typography>{name}</Typography>
       </CardContent>
       <CardActions>
         <Button
           size="small"
-          onClick={() => {
-            console.log("Delete card", id, content, name);
+          onClick={async () => {
+            const response = await fetch("/api/card/" + id, {
+              method: "DELETE",
+            });
+            console.log(await response.json());
+            mutate("/api/cards");
           }}
         >
           Delete
@@ -50,32 +60,49 @@ function CardModeShow({ id, content, name, onEnableEditMode }) {
     </>
   );
 }
-function CardModeEdit({ id, content, name, onDisableEditMode }) {
-  const [nameValue, setNameValue] = useState(name);
+
+function CardEditMode({ name, content, id, onDisableEditMode }) {
   const [contentValue, setContentValue] = useState(content);
-  function onFormSubmit(event) {
+  const [nameValue, setNameValue] = useState(name);
+  const { mutate } = useSWRConfig();
+
+  async function submit(event) {
     event.preventDefault();
-    console.log(nameValue, contentValue);
+
+    console.log(id, nameValue, contentValue);
+
+    const response = await fetch("/api/card/" + id, {
+      method: "PUT",
+      body: JSON.stringify({
+        content: contentValue,
+        name: nameValue,
+      }),
+    });
+    console.log(await response.json());
+
+    mutate("/api/cards");
+
     onDisableEditMode();
   }
+
   return (
-    <form onSubmit={onFormSubmit}>
+    <form onSubmit={submit}>
       <CardContent>
         <TextField
           name="content"
-          label="Content"
+          label="content"
           fullWidth
           multiline
-          rows={2}
+          row={2}
           value={contentValue}
           onChange={(event) => {
             setContentValue(event.target.value);
           }}
-          sx={{ marginBottom: 2 }}
+          sx={{ marginBottom: "1rem" }}
         />
         <TextField
           name="name"
-          label="Name"
+          label="name"
           fullWidth
           value={nameValue}
           onChange={(event) => {
@@ -84,13 +111,7 @@ function CardModeEdit({ id, content, name, onDisableEditMode }) {
         />
       </CardContent>
       <CardActions>
-        <Button
-          type="submit"
-          size="small"
-          onClick={() => {
-            console.log("Delete card", id, content, name);
-          }}
-        >
+        <Button size="small" type="submit">
           Save
         </Button>
       </CardActions>
